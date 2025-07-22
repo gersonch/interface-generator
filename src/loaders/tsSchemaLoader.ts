@@ -77,6 +77,19 @@ export function parseModelFile(filePath: string): ParsedField[] {
       else if (initializer.isKind(SyntaxKind.ObjectLiteralExpression)) {
         const objProps = initializer.getProperties();
 
+        // 👉 Determinar si el campo es opcional
+        const requiredProp = objProps.find(
+          (p) =>
+            p.isKind(SyntaxKind.PropertyAssignment) &&
+            p.getName() === "required"
+        );
+
+        const optional =
+          (requiredProp &&
+            requiredProp.isKind(SyntaxKind.PropertyAssignment) &&
+            requiredProp.getInitializer()?.getText() === "false") ||
+          !requiredProp;
+
         // enum sin type
         const enumProp = objProps.find(
           (p) =>
@@ -98,22 +111,90 @@ export function parseModelFile(filePath: string): ParsedField[] {
         } else if (typeProp && typeProp.isKind(SyntaxKind.PropertyAssignment)) {
           const typeInit = typeProp.getInitializer();
           if (typeInit?.isKind(SyntaxKind.Identifier)) {
-            type = normalizeType(typeInit.getText());
+            if (typeInit.getText() === "Map") {
+              const ofProp = objProps.find(
+                (p) =>
+                  p.isKind(SyntaxKind.PropertyAssignment) &&
+                  p.getName() === "of"
+              );
+              let inner = "any";
+              if (ofProp?.isKind(SyntaxKind.PropertyAssignment)) {
+                const ofInit = ofProp.getInitializer();
+                if (ofInit?.isKind(SyntaxKind.Identifier)) {
+                  inner = normalizeType(ofInit.getText());
+                }
+              }
+              type = `Record<string, ${inner}>`;
+            } else {
+              type = normalizeType(typeInit.getText());
+            }
+          } else if (typeInit?.isKind(SyntaxKind.PropertyAccessExpression)) {
+            // Para casos como Schema.Types.ObjectId
+            if (typeInit.getText().endsWith("ObjectId")) {
+              type = "Types.ObjectId";
+            } else {
+              type = typeInit.getText();
+            }
+          } else if (typeInit?.isKind(SyntaxKind.ArrayLiteralExpression)) {
+            // Para casos como type: [String]
+            const arrElements = typeInit.getElements();
+            if (
+              arrElements.length > 0 &&
+              arrElements[0].isKind(SyntaxKind.Identifier)
+            ) {
+              type = normalizeType(arrElements[0].getText()) + "[]";
+            } else {
+              type = "any[]";
+            }
           }
         } else {
-          // caso anidado: { votes: Number, favs: Number }
+          // caso anidado: { futbol: { type: Boolean, ... }, ... }
           const fields = objProps
             .filter((p) => p.isKind(SyntaxKind.PropertyAssignment))
             .map((p) => {
               const key = p.getName();
               const val = p.getInitializer();
-              const valType = val?.isKind(SyntaxKind.Identifier)
-                ? normalizeType(val.getText())
-                : "any";
+              let valType = "any";
+              if (val?.isKind(SyntaxKind.Identifier)) {
+                valType = normalizeType(val.getText());
+              } else if (val?.isKind(SyntaxKind.ObjectLiteralExpression)) {
+                const typeProp = val.getProperty("type");
+                if (
+                  typeProp &&
+                  typeProp.isKind(SyntaxKind.PropertyAssignment)
+                ) {
+                  const typeInit = typeProp.getInitializer();
+                  if (typeInit?.isKind(SyntaxKind.Identifier)) {
+                    valType = normalizeType(typeInit.getText());
+                  } else if (
+                    typeInit?.isKind(SyntaxKind.PropertyAccessExpression)
+                  ) {
+                    if (typeInit.getText().endsWith("ObjectId")) {
+                      valType = "Types.ObjectId";
+                    } else {
+                      valType = typeInit.getText();
+                    }
+                  } else if (
+                    typeInit?.isKind(SyntaxKind.ArrayLiteralExpression)
+                  ) {
+                    const arrElements = typeInit.getElements();
+                    if (
+                      arrElements.length > 0 &&
+                      arrElements[0].isKind(SyntaxKind.Identifier)
+                    ) {
+                      valType = normalizeType(arrElements[0].getText()) + "[]";
+                    } else {
+                      valType = "any[]";
+                    }
+                  }
+                }
+              }
               return `${key}: ${valType}`;
             });
           type = `{ ${fields.join("; ")} }`;
         }
+
+        return [{ name, type, optional }];
       }
 
       // 🔸 Caso arreglo

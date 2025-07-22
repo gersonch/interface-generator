@@ -1,6 +1,6 @@
 {
   "name": "@negors/interface-generator",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "",
   "main": "dist/cli.js",
   "types": "dist/cli.d.ts",
