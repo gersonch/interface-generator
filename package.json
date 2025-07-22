@@ -1,0 +1,32 @@
+{
+  "name": "@negors/interface-generator",
+  "version": "1.0.6",
+  "description": "",
+  "main": "dist/cli.js",
+  "types": "dist/cli.d.ts",
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "scripts": {
+    "dev": "ts-node --esm src/cli.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "ts-morph": "^26.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.15",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "bin": {
+    "genInt": "./bin/genInt.js"
+  }
+}
