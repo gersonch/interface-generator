@@ -1,8 +1,10 @@
 import { parseSchemaMongoose } from "./loaders/tsSchemaMongooseLoader.js";
 import { generateInterface } from "./generators/tsGenerator.js";
 import fs from "fs";
-import path from "path";
+import path, { parse } from "path";
 import { parseTypeormModelFile } from "./loaders/tsEntityTypeOrmLoader.js";
+import chalk from "chalk";
+import { parseSequelizeModelFile } from "./loaders/tsModelSequelizeLoader.js";
 
 export async function generateFromModel(
   filePath: string,
@@ -10,6 +12,7 @@ export async function generateFromModel(
 ) {
   try {
     let fields;
+
     switch (options.orm) {
       case "mongoose":
         fields = parseSchemaMongoose(filePath);
@@ -18,8 +21,8 @@ export async function generateFromModel(
         fields = parseTypeormModelFile(filePath);
         break;
       case "sequelize":
-        // fields = parseSequelizeModelFile(filePath); // lógica para sequelize (deberás implementarla)
-        throw new Error("Soporte para Sequelize no implementado aún.");
+        fields = parseSequelizeModelFile(filePath);
+        break;
       default:
         throw new Error("ORM/ODM no soportado o no especificado.");
     }
@@ -32,11 +35,15 @@ export async function generateFromModel(
     await fs.promises.writeFile(outputPath, content, "utf-8");
 
     console.log(
-      `Interface ${interfaceName} generated successfully at ${outputPath}`
+      chalk.bgGreen(
+        `Interface ${interfaceName} generated successfully at ${outputPath}`
+      )
     );
   } catch (error) {
     if (error instanceof Error) {
-      console.error(`Error generating interface: ${error.message}`);
+      console.error(
+        chalk.redBright(`Error generating interface: ${error.message}`)
+      );
     } else {
       console.error(`Error generating interface: ${error}`);
     }
