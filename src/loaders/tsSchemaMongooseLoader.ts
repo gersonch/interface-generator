@@ -1,54 +1,36 @@
 import { Project, SourceFile, SyntaxKind } from "ts-morph";
+import { normalizeType } from "../utilities/normalizeType.js";
+import chalk from "chalk";
 
 export interface ParsedField {
   name: string;
   type: string;
   optional: boolean;
+  isRelation?: boolean;
+  relationType?: "ManyToOne" | "OneToMany" | "OneToOne" | "ManyToMany";
+  relatedEntity?: string;
 }
 
-function normalizeType(type: string): string {
-  const map: Record<string, string> = {
-    String: "string",
-    Number: "number",
-    Boolean: "boolean",
-    Date: "Date",
-    ObjectId: "string",
-  };
-  return map[type] ?? type;
-}
-
-export function parseModelFile(filePath: string): ParsedField[] {
+export function parseSchemaMongoose(filePath: string): ParsedField[] {
   const project = new Project({
     tsConfigFilePath: "tsconfig.json",
   });
 
   const sourceFile: SourceFile = project.addSourceFileAtPath(filePath);
 
-  const classDecl = sourceFile
-    .getClasses()
-    .find((cls) => cls.getDecorators().some((d) => d.getName() === "Schema"));
-
   const schemaDecl = sourceFile
     .getDescendantsOfKind(SyntaxKind.NewExpression)
     .find((exp) => exp.getExpression().getText().includes("Schema"));
 
-  if (!classDecl && !schemaDecl) {
-    throw new Error(
-      `No class with @Schema decorator or variable with 'new Schema(...)' found in ${filePath}`
-    );
+  if (!schemaDecl) {
+    const msg = `No schema declaration found in ${filePath}`;
+    const [prefix, ...rest] = msg.split(":");
+    throw new Error(chalk.redBright(prefix + ":") + rest.join(":"));
   }
 
   let parsedFields: ParsedField[] = [];
 
-  if (classDecl) {
-    const propsClass = classDecl.getProperties();
-    parsedFields = propsClass.map((prop) => {
-      const name = prop.getName();
-      const type = normalizeType(prop.getType().getText());
-      const optional = prop.hasQuestionToken();
-      return { name, type, optional };
-    });
-  } else if (schemaDecl) {
+  if (schemaDecl) {
     const arg = schemaDecl.getArguments()[0];
     //verifica que sea un objeto
     if (!arg?.asKind(SyntaxKind.ObjectLiteralExpression)) {

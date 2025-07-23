@@ -19,10 +19,11 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
+    "inquirer": "^12.8.2",
     "ts-morph": "^26.0.0"
   },
   "devDependencies": {
